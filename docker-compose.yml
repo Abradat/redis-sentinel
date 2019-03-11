@@ -1,0 +1,65 @@
+version: "3"
+services:
+  master:
+    image: redis:latest
+    ports: 
+      - "6379:6379"
+    restart: always
+  slave:
+    image: redis:latest
+    command: redis-server --slaveof redis-master 6379
+    links:
+      - master:redis-master
+    ports: 
+      - "6380:6379"
+    restart: always
+  sentinel-1:
+    build: ./sentinel
+    environment:
+      - SENTINEL_DOWN_AFTER=5000
+      - SENTINEL_FAILOVER=5000
+    links:
+      - master:redis-master
+      - slave
+    ports: 
+      - "26379:26379"
+  sentinel-2:
+    build: ./sentinel
+    environment:
+      - SENTINEL_DOWN_AFTER=5000
+      - SENTINEL_FAILOVER=5000
+    links:
+      - master:redis-master
+      - slave
+    ports: 
+      - "26380:26379"
+  sentinel-3:
+    build: ./sentinel
+    environment:
+      - SENTINEL_DOWN_AFTER=5000
+      - SENTINEL_FAILOVER=5000
+    links:
+      - master:redis-master
+      - slave
+    ports: 
+      - "26381:26379"
+  sentinel-client:
+    build: ./sentinel-client
+    ports:
+      - "8080:8080"
+    volumes: 
+      - ~/.m2:/root/.m2
+    depends_on:
+      - master
+      - slave
+      - sentinel-1
+      - sentinel-2
+      - sentinel-3
+    environment:
+      SENTINEL_1: sentinel-1
+      SENTINEL_2: sentinel-2
+      SENTINEL_3: sentinel-3
+      JAVA_OPTS: -Xmx192m
+      DOCKER_HOST_IP : ${DOCKER_HOST_IP}
+      COMMON_PATH : /app/lib
+    command: mvn clean package spring-boot:run
